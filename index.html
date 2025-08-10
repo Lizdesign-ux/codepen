@@ -4,10 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>GSAP Scramble Text Demo</title>
-
-  <!-- 使用官方 CDN -->
-  <script src="https://cdn.gsap.com/v3/gsap.min.js"></script>
-  <script src="https://cdn.gsap.com/v3/TextPlugin.min.js"></script>
+  
+  <!-- 使用可靠的 CDN 源 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/TextPlugin.min.js"></script>
 
   <style>
     @font-face {
@@ -18,167 +18,145 @@
       src: url(https://assets.codepen.io/16327/PPMori-Regular.woff) format("woff");
     }
 
-    html,
-    body {
+    * {
+      box-sizing: border-box;
+    }
+    
+    html, body {
       margin: 0;
       padding: 0;
       width: 100%;
       height: 100vh;
       overflow: hidden;
       background: #0e100f;
-    }
-
-    body {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
       font-family: "Mori", -apple-system, BlinkMacSystemFont, sans-serif;
-      color: #dfdcff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
       text-align: center;
-      line-height: 1;
+      color: #dfdcff;
     }
-
+    
+    .container {
+      max-width: 800px;
+      padding: 20px;
+    }
+    
     .text-scramble__content {
-      font-size: max(2rem, min(5.69579vw + 0.665049rem, 3rem));
+      font-size: clamp(1.5rem, 5vw, 3rem);
       font-weight: 600;
       letter-spacing: -0.01em;
       line-height: 1.1;
-      margin-top: max(2rem, min(2.0712vw + 1.51456rem, 4rem));
-      padding-bottom: 1.1em;
       position: relative;
-      width: 90%;
-      max-width: 800px;
     }
-
+    
     .text-scramble__text {
       position: relative;
-      display: block;
     }
-
+    
     .text-scramble__text span {
-      display: inline-block;
-      white-space: nowrap;
+      display: block;
+      margin-bottom: 0.5em;
     }
-
-    .text-scramble__text img {
+    
+    .scramble-cursor {
       display: inline-block;
       height: 0.9em;
-      width: auto;
+      width: 2px;
+      background: #dfdcff;
+      margin-left: 4px;
       vertical-align: middle;
-      margin-left: 2px;
+      animation: blink 1s infinite;
     }
     
-    /* 隐藏原始文本 */
-    #scramble-text-original {
-      position: absolute;
-      opacity: 0;
-      pointer-events: none;
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
     }
     
-    /* 添加加载状态 */
-    .loading-indicator {
+    .status {
       position: fixed;
       top: 20px;
       left: 20px;
       color: white;
+      background: rgba(0,0,0,0.7);
+      padding: 10px;
+      border-radius: 4px;
       font-size: 14px;
       z-index: 1000;
-      background: rgba(0,0,0,0.7);
-      padding: 5px 10px;
-      border-radius: 4px;
+    }
+    
+    #scramble-text-original {
+      display: none;
     }
   </style>
 </head>
 <body>
-  <div class="loading-indicator">GSAP Loading...</div>
-
-  <div class="text-scramble__content">
-    <p id="scramble-text-original">Mix it up with ScrambleText. Animate using characters, numbers, UPPERCASE or lowercase.</p>
-
-    <div class="text-scramble__text" aria-hidden="true">
-      <span id="scramble-text-1"></span>
-      <span id="scramble-text-2"></span>
-      <span id="scramble-text-3"></span>
-      <span id="scramble-text-4"></span>
-      <span id="scramble-text-5"></span>
-      <img id="scramble-cursor" src="https://assets.codepen.io/16327/scramble-cursor.png" alt="" />
+  <div class="status" id="status">Loading GSAP...</div>
+  
+  <div class="container">
+    <div class="text-scramble__content">
+      <div id="scramble-text-original">Mix it up with ScrambleText. Animate using characters, numbers, UPPERCASE or lowercase.</div>
+      
+      <div class="text-scramble__text">
+        <span id="scramble-text-1"></span>
+        <span id="scramble-text-2"></span>
+        <span id="scramble-text-3"></span>
+        <span id="scramble-text-4"></span>
+        <span id="scramble-text-5"></span>
+        <span class="scramble-cursor"></span>
+      </div>
     </div>
   </div>
 
   <script>
-    // 显示加载状态
-    const loader = document.querySelector('.loading-indicator');
+    // 获取状态元素
+    const statusEl = document.getElementById('status');
     
-    // 确保在资源加载后执行
-    window.addEventListener('load', function() {
-      loader.textContent = "Initializing GSAP...";
+    // 1. 首先检查 GSAP 是否加载成功
+    if (typeof gsap === 'undefined') {
+      statusEl.textContent = "GSAP failed to load!";
+    } else {
+      statusEl.textContent = "GSAP loaded! Version: " + gsap.version;
+    }
+    
+    // 2. 检查 TextPlugin 是否可用
+    let textPluginAvailable = false;
+    if (typeof TextPlugin !== 'undefined') {
+      textPluginAvailable = true;
+      statusEl.textContent += " | TextPlugin available";
+    } else {
+      statusEl.textContent += " | TextPlugin NOT available";
+    }
+    
+    // 3. 初始化动画
+    function initAnimation() {
+      statusEl.textContent += " | Initializing animation";
       
-      // 关键修复：禁用试用警告并注册插件
-      gsap.config({ 
-        trialWarn: false,
-        nullTargetWarn: false
-      });
-      
-      // 必须注册插件
-      if (typeof TextPlugin !== 'undefined') {
+      // 如果 TextPlugin 可用则注册
+      if (textPluginAvailable) {
         gsap.registerPlugin(TextPlugin);
-        loader.textContent = "TextPlugin registered!";
       } else {
-        loader.textContent = "TextPlugin not found!";
+        statusEl.textContent += " | TextPlugin not registered";
         return;
       }
       
-      // 确保目标元素存在
+      // 获取所有元素
       const text1 = document.getElementById('scramble-text-1');
       const text2 = document.getElementById('scramble-text-2');
       const text3 = document.getElementById('scramble-text-3');
       const text4 = document.getElementById('scramble-text-4');
       const text5 = document.getElementById('scramble-text-5');
-      const cursor = document.getElementById('scramble-cursor');
       
-      if (!text1 || !text2 || !text3 || !text4 || !text5 || !cursor) {
-        loader.textContent = "Missing elements!";
-        return;
-      }
-      
-      // 设置初始状态
-      gsap.set(cursor, { opacity: 1 });
-      gsap.set([text1, text2, text3, text4, text5], { 
-        opacity: 1,
-        display: "inline-block"
-      });
-      
-      loader.textContent = "Creating timeline...";
-      
-      // 创建时间线
+      // 创建主时间线
       const tl = gsap.timeline({
-        defaults: { ease: "none" },
-        onStart: () => loader.textContent = "Animation started!",
-        onComplete: () => loader.textContent = "Animation complete!"
+        onStart: () => statusEl.textContent += " | Animation started",
+        onComplete: () => statusEl.textContent += " | Animation complete"
       });
       
-      const cursorTl = gsap.timeline({ 
-        repeat: -1,
-        repeatDelay: 0.2
-      });
-      
-      // 光标动画
-      cursorTl
-        .to(cursor, {
-          opacity: 0,
-          duration: 0.5,
-          ease: "none",
-          delay: 0.2
-        })
-        .to(cursor, {
-          opacity: 1,
-          duration: 0.5,
-          ease: "none"
-        });
-      
-      // 文本动画序列 - 简化版本
+      // 第一段文本动画
       tl.to(text1, {
+        duration: 2,
         text: {
           value: "Mix it up with ScrambleText.",
           scrambleText: {
@@ -186,57 +164,62 @@
             speed: 1,
             revealDelay: 0.2
           }
-        },
-        duration: 2
+        }
       })
+      // 第二段文本动画
       .to(text2, {
+        duration: 2,
         text: {
           value: "Animate using characters",
           scrambleText: {
             chars: "XO",
             speed: 0.4
           }
-        },
-        duration: 2
-      }, "+=0.5")
+        }
+      }, "+=0.3")
+      // 第三段文本动画
       .to(text3, {
+        duration: 1.5,
         text: {
           value: " numbers,",
           scrambleText: {
             chars: "0123456789",
             speed: 1
           }
-        },
-        duration: 1.5
+        }
       })
+      // 第四段文本动画
       .to(text4, {
+        duration: 1,
         text: {
           value: "UPPERCASE",
           scrambleText: {
             chars: "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
             speed: 0.3
           }
-        },
-        duration: 1
+        }
       })
+      // 第五段文本动画
       .to(text5, {
+        duration: 1.5,
         text: {
           value: "or lowercase.",
           scrambleText: {
             chars: "abcdefghijklmnopqrstuvwxyz",
             speed: 0.3
           }
-        },
-        duration: 1.5
-      })
-      .add(cursorTl, 0);
+        }
+      });
       
-      // 点击重播
+      // 点击页面重新播放动画
       document.body.addEventListener('click', () => {
         tl.restart();
-        cursorTl.restart();
+        statusEl.textContent += " | Restarted";
       });
-    });
+    }
+    
+    // 等待页面完全加载后初始化
+    window.addEventListener('load', initAnimation);
   </script>
 </body>
 </html>
